@@ -1488,6 +1488,10 @@ def show_statistics_page():
             st.subheader("Mémoires par année universitaire")
             if not stats['memoires_par_annee'].empty:
                 # Inverser l'ordre pour avoir les années les plus récentes à droite
+                chart_data = stats['memoires_par_annee'].sort_values('annee_universitaire')
+                st.bar_chart(chart_data.set_index('annee_universitaire'))
+            else:
+                st.info("Aucune donnée disponible")
 
 def show_entities_management():
     st.header("🏢 Gestion des Entités")
