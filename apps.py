@@ -247,7 +247,7 @@ def delete_entity(entity_id):
 def add_filiere(nom, entite_id):
     try:
         db.connect()
-        db.cursor.execute("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", (nom, entite_id))
+        db.cursor.execute(adapt_query("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", db.config['db_type']), (nom, entite_id))
         db.conn.commit()
         result = True, "Filière ajoutée avec succès."
     except Exception:
