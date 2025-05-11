@@ -486,7 +486,8 @@ def search_memoires(query, entity=None, filiere=None, session=None):
 # Fonction pour obtenir les filieres d'une entité
 def get_filieres_by_entity(entity_id):
     conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT id, nom FROM filieres WHERE entite_id=%s ORDER BY nom", conn, params=(entity_id,))
+    query = adapt_query("SELECT id, nom FROM filieres WHERE entite_id=%s ORDER BY nom", db.config['db_type'])
+    df = pd.read_sql_query(query, conn, params=(entity_id,))
     conn.close()
     return df
 
