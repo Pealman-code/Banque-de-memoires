@@ -1,5 +1,5 @@
 import streamlit as st
-import sqlite3
+
 import pandas as pd
 import os
 import hashlib
@@ -183,9 +183,6 @@ st.markdown("""
 os.makedirs("data", exist_ok=True)
 os.makedirs("data/memoires", exist_ok=True)
 
-# Chemin de la base de données
-DB_PATH = "data/memoires_db.sqlite"
-
 # Initialiser le stockage de fichiers
 storage = FileStorage()
 
@@ -225,7 +222,7 @@ def add_entity(nom):
 # Fonction pour récupérer toutes les entités
 def get_all_entities():
     db.connect()
-    df = pd.read_sql_query("SELECT * FROM entites ORDER BY nom", db.conn)
+    df = pd.read_sql_query(adapt_query("SELECT * FROM entites ORDER BY nom", db.config['db_type']), db.conn)
     db.close()
     return df
 
@@ -233,11 +230,11 @@ def get_all_entities():
 def delete_entity(entity_id):
     db.connect()
     try:
-        db.cursor.execute("SELECT COUNT(*) FROM filieres WHERE entite_id=%s", (entity_id,))
+        db.cursor.execute(adapt_query("SELECT COUNT(*) FROM filieres WHERE entite_id=%s", db.config['db_type']), (entity_id,))
         count = db.cursor.fetchone()[0]
         if count > 0:
             return False, "Cette entité est associée à des filières et ne peut pas être supprimée."
-        db.cursor.execute("DELETE FROM entites WHERE id=%s", (entity_id,))
+        db.cursor.execute(adapt_query("DELETE FROM entites WHERE id=%s", db.config['db_type']), (entity_id,))
         db.conn.commit()
         return True, "Entité supprimée avec succès."
     finally:
@@ -265,7 +262,7 @@ def get_all_filieres():
     JOIN entites e ON f.entite_id = e.id 
     ORDER BY e.nom, f.nom
     """
-    df = pd.read_sql_query(query, db.conn)
+    df = pd.read_sql_query(adapt_query(query, db.config['db_type']), db.conn)
     db.close()
     return df
 
@@ -273,11 +270,11 @@ def get_all_filieres():
 def delete_filiere(filiere_id):
     db.connect()
     try:
-        db.cursor.execute("SELECT COUNT(*) FROM memoires WHERE filiere_id=%s", (filiere_id,))
+        db.cursor.execute(adapt_query("SELECT COUNT(*) FROM memoires WHERE filiere_id=%s", db.config['db_type']), (filiere_id,))
         count = db.cursor.fetchone()[0]
         if count > 0:
             return False, "Cette filière est associée à des mémoires et ne peut pas être supprimée."
-        db.cursor.execute("DELETE FROM filieres WHERE id=%s", (filiere_id,))
+        db.cursor.execute(adapt_query("DELETE FROM filieres WHERE id=%s", db.config['db_type']), (filiere_id,))
         db.conn.commit()
         return True, "Filière supprimée avec succès."
     finally:
@@ -285,40 +282,37 @@ def delete_filiere(filiere_id):
 
 # Fonction pour ajouter une session
 def add_session(annee):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    db.connect()
     try:
-        c.execute(adapt_query("INSERT INTO sessions (annee_universitaire) VALUES (%s)", db.config['db_type']), (annee,))
-        conn.commit()
+        db.cursor.execute(adapt_query("INSERT INTO sessions (annee_universitaire) VALUES (%s)", db.config['db_type']), (annee,))
+        db.conn.commit()
         result = True, "Session ajoutée avec succès."
-    except sqlite3.IntegrityError:
-        result = False, "Cette session existe déjà."
-    conn.close()
+    except Exception as e:
+        result = False, f"Erreur lors de l'ajout de la session : {str(e)}"
+    finally:
+        db.close()
     return result
 
 # Fonction pour récupérer toutes les sessions
 def get_all_sessions():
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT * FROM sessions ORDER BY annee_universitaire DESC", conn)
-    conn.close()
+    db.connect()
+    df = pd.read_sql_query(adapt_query("SELECT * FROM sessions ORDER BY annee_universitaire DESC", db.config['db_type']), db.conn)
+    db.close()
     return df
 
 # Fonction pour supprimer une session
 def delete_session(session_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Vérifier si la session est utilisée dans un mémoire
-    c.execute("SELECT COUNT(*) FROM memoires WHERE session_id=%s", (session_id,))
-    count = c.fetchone()[0]
-    if count > 0:
-        conn.close()
-        return False, "Cette session est associée à des mémoires et ne peut pas être supprimée."
-    
-    # Supprimer la session
-    c.execute("DELETE FROM sessions WHERE id=%s", (session_id,))
-    conn.commit()
-    conn.close()
-    return True, "Session supprimée avec succès."
+    db.connect()
+    try:
+        db.cursor.execute(adapt_query("SELECT COUNT(*) FROM memoires WHERE session_id=%s", db.config['db_type']), (session_id,))
+        count = db.cursor.fetchone()[0]
+        if count > 0:
+            return False, "Cette session est associée à des mémoires et ne peut pas être supprimée."
+        db.cursor.execute(adapt_query("DELETE FROM sessions WHERE id=%s", db.config['db_type']), (session_id,))
+        db.conn.commit()
+        return True, "Session supprimée avec succès."
+    finally:
+        db.close()
 
 # Fonction pour sauvegarder un fichier PDF
 def save_pdf(uploaded_file, filename):
@@ -330,52 +324,51 @@ def save_pdf(uploaded_file, filename):
 # Fonction pour sauvegarder le contenu d'un PDF dans la base de données
 def save_pdf_content(memoire_id, pdf_content):
     """Sauvegarde le contenu du PDF dans la base de données."""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
+    db.connect()
     try:
         # Supprimer l'ancien contenu s'il existe
-        c.execute("DELETE FROM pdf_content WHERE memoire_id = %s", (memoire_id,))
+        db.cursor.execute(adapt_query("DELETE FROM pdf_content WHERE memoire_id = %s", db.config['db_type']), (memoire_id,))
         
         # Insérer le nouveau contenu
         for page in pdf_content:
-            c.execute("""
+            db.cursor.execute(adapt_query("""
             INSERT INTO pdf_content (memoire_id, page_num, content)
             VALUES (%s, %s, %s)
-            """, (memoire_id, page['page_num'], page['text']))
+            """, db.config['db_type']), (memoire_id, page['page_num'], page['text']))
         
-        conn.commit()
+        db.conn.commit()
         return True
     except Exception as e:
         st.error(f"Erreur lors de la sauvegarde du contenu: {str(e)}")
         return False
     finally:
-        conn.close()
+        db.close()
 
 # Fonction pour ajouter un mémoire
 def add_memoire(titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    db.connect()
     try:
         date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Insérer le mémoire
-        c.execute("""
+        db.cursor.execute(adapt_query("""
         INSERT INTO memoires 
         (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_now))
+        """, db.config['db_type']), (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_now))
         
-        conn.commit()
+        db.conn.commit()
         result = True, "Mémoire ajouté avec succès."
     except Exception as e:
+        db.conn.rollback()
         result = False, f"Erreur lors de l'ajout du mémoire: {str(e)}"
-    conn.close()
+    finally:
+        db.close()
     return result
 
 # Fonction pour récupérer tous les mémoires
 def get_all_memoires():
-    conn = sqlite3.connect(DB_PATH)
+    db.connect()
     query = """
     SELECT m.id, m.titre, m.auteurs, m.encadreur, m.resume, m.fichier_url, m.tags, 
            f.nom as filiere_nom, s.annee_universitaire, m.version, m.date_ajout,
@@ -387,35 +380,32 @@ def get_all_memoires():
     ORDER BY m.date_ajout DESC
     """
     try:
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(adapt_query(query, db.config['db_type']), db.conn)
         return df
     except Exception as e:
         print(f"Erreur lors de la récupération des mémoires : {e}")
         return pd.DataFrame()  # Retourne un DataFrame vide en cas d'erreur
     finally:
-        conn.close()
+        db.close()
 
 # Fonction pour supprimer un mémoire
 def delete_memoire(memoire_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
+    db.connect()
     try:
         # Vérifier si le mémoire existe
-        c.execute("SELECT id, fichier_url FROM memoires WHERE id = %s", (memoire_id,))
-        result = c.fetchone()
+        db.cursor.execute(adapt_query("SELECT id, fichier_url FROM memoires WHERE id = %s", db.config['db_type']), (memoire_id,))
+        result = db.cursor.fetchone()
         
         if result is None:
-            conn.close()
             return False, f"Mémoire avec ID {memoire_id} non trouvé dans la base de données."
         
         file_path = result[1]
         
         # Supprimer d'abord les références dans la table favoris
-        c.execute("DELETE FROM favoris WHERE memoire_id = %s", (memoire_id,))
+        db.cursor.execute(adapt_query("DELETE FROM favoris WHERE memoire_id = %s", db.config['db_type']), (memoire_id,))
         
         # Supprimer le mémoire de la base de données
-        c.execute("DELETE FROM memoires WHERE id = %s", (memoire_id,))
+        db.cursor.execute(adapt_query("DELETE FROM memoires WHERE id = %s", db.config['db_type']), (memoire_id,))
         
         # Supprimer le fichier PDF si nécessaire
         if file_path and file_path.startswith("local://"):
@@ -425,19 +415,18 @@ def delete_memoire(memoire_id):
                 print(f"Avertissement: Erreur lors de la suppression du fichier: {e}")
                 # On continue même si la suppression du fichier échoue
         
-        conn.commit()
+        db.conn.commit()
         return True, "Mémoire supprimé avec succès."
         
     except Exception as e:
-        conn.rollback()
+        db.conn.rollback()
         return False, f"Erreur lors de la suppression: {str(e)}"
     finally:
-        conn.close()
+        db.close()
 
 # Fonction pour rechercher des mémoires
 def search_memoires(query, entity=None, filiere=None, session=None):
-    conn = sqlite3.connect(DB_PATH)
-    
+    db.connect()
     conditions = []
     params = []
     
@@ -479,21 +468,21 @@ def search_memoires(query, entity=None, filiere=None, session=None):
     
     sql += " ORDER BY m.date_ajout DESC"
     
-    df = pd.read_sql_query(sql, conn, params=params)
-    conn.close()
+    df = pd.read_sql_query(adapt_query(sql, db.config['db_type']), db.conn, params=params)
+    db.close()
     return df
 
 # Fonction pour obtenir les filieres d'une entité
 def get_filieres_by_entity(entity_id):
-    conn = sqlite3.connect(DB_PATH)
+    db.connect()
     query = adapt_query("SELECT id, nom FROM filieres WHERE entite_id=%s ORDER BY nom", db.config['db_type'])
-    df = pd.read_sql_query(query, conn, params=(entity_id,))
-    conn.close()
+    df = pd.read_sql_query(query, db.conn, params=(entity_id,))
+    db.close()
     return df
 
 # Fonction pour obtenir le détail d'un mémoire
 def get_memoire_details(memoire_id):
-    conn = sqlite3.connect(DB_PATH)
+    db.connect()
     query = """
     SELECT m.id, m.titre, m.auteurs, m.encadreur, m.resume, m.fichier_url, m.tags, 
            f.nom as filiere_nom, s.annee_universitaire, m.version, m.date_ajout,
@@ -504,75 +493,77 @@ def get_memoire_details(memoire_id):
     JOIN entites e ON f.entite_id = e.id
     WHERE m.id = %s
     """
-    df = pd.read_sql_query(query, conn, params=(memoire_id,))
-    conn.close()
+    df = pd.read_sql_query(adapt_query(query, db.config['db_type']), db.conn, params=(memoire_id,))
+    db.close()
     if len(df) > 0:
         return df.iloc[0]
     return None
 
 # Fonction pour mettre à jour un mémoire
 def update_memoire(memoire_id, titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    db.connect()
     try:
         if fichier_url:  # Nouveau fichier PDF
-            c.execute("""
+            query = """
             UPDATE memoires 
             SET titre=%s, auteurs=%s, encadreur=%s, resume=%s, fichier_url=%s, tags=%s, filiere_id=%s, session_id=%s, version=%s
             WHERE id=%s
-            """, (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, memoire_id))
+            """
+            db.cursor.execute(adapt_query(query, db.config['db_type']), (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, memoire_id))
         else:  # Pas de nouveau fichier PDF
-            c.execute("""
+            query = """
             UPDATE memoires 
             SET titre=%s, auteurs=%s, encadreur=%s, resume=%s, tags=%s, filiere_id=%s, session_id=%s, version=%s
             WHERE id=%s
-            """, (titre, auteurs, encadreur, resume, tags, filiere_id, session_id, version, memoire_id))
-        
-        conn.commit()
+            """
+            db.cursor.execute(adapt_query(query, db.config['db_type']), (titre, auteurs, encadreur, resume, tags, filiere_id, session_id, version, memoire_id))
+        db.conn.commit()
         result = True, "Mémoire mis à jour avec succès."
     except Exception as e:
+        db.conn.rollback()
         result = False, f"Erreur lors de la mise à jour du mémoire: {str(e)}"
-    conn.close()
+    finally:
+        db.close()
     return result
 
 # Fonction pour obtenir les statistiques
 def get_statistics():
-    conn = sqlite3.connect(DB_PATH)
+    db.connect()
     stats = {}
     
     # Nombre total de mémoires
-    stats['total_memoires'] = pd.read_sql_query("SELECT COUNT(*) as count FROM memoires", conn).iloc[0]['count']
+    stats['total_memoires'] = pd.read_sql_query(adapt_query("SELECT COUNT(*) as count FROM memoires", db.config['db_type']), db.conn).iloc[0]['count']
     
     # Nombre de mémoires par entité
-    stats['memoires_par_entite'] = pd.read_sql_query("""
+    stats['memoires_par_entite'] = pd.read_sql_query(adapt_query("""
     SELECT e.nom, COUNT(*) as count 
     FROM memoires m
     JOIN filieres f ON m.filiere_id = f.id
     JOIN entites e ON f.entite_id = e.id
     GROUP BY e.nom
     ORDER BY count DESC
-    """, conn)
+    """, db.config['db_type']), db.conn)
     
     # Nombre de mémoires par année
-    stats['memoires_par_annee'] = pd.read_sql_query("""
+    stats['memoires_par_annee'] = pd.read_sql_query(adapt_query("""
     SELECT s.annee_universitaire, COUNT(*) as count 
     FROM memoires m
     JOIN sessions s ON m.session_id = s.id
     GROUP BY s.annee_universitaire
     ORDER BY s.annee_universitaire DESC
-    """, conn)
+    """, db.config['db_type']), db.conn)
     
     # Nombre de mémoires par filière
-    stats['memoires_par_filiere'] = pd.read_sql_query("""
+    stats['memoires_par_filiere'] = pd.read_sql_query(adapt_query("""
     SELECT f.nom, COUNT(*) as count 
     FROM memoires m
     JOIN filieres f ON m.filiere_id = f.id
     GROUP BY f.nom
     ORDER BY count DESC
     LIMIT 10
-    """, conn)
+    """, db.config['db_type']), db.conn)
     
-    conn.close()
+    db.close()
     return stats
 
 # Fonction pour afficher un PDF intégré
@@ -643,32 +634,30 @@ def register_visitor(nom, prenom, email, password, date_naissance, genre, teleph
 # Fonction pour vérifier si un email existe
 def check_email_exists(email):
     db.connect()
-    db.cursor.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
+    db.cursor.execute(adapt_query("SELECT id FROM utilisateurs WHERE email=%s", db.config['db_type']), (email,))
     result = db.cursor.fetchone()
     db.close()
     return result is not None
 
 # Fonction pour mettre à jour le mot de passe
 def update_password(email, new_password):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    # Vérifier si l'utilisateur est un administrateur
-    c.execute("SELECT role FROM utilisateurs WHERE email=%s", (email,))
-    user_role = c.fetchone()
-    
-    if user_role and user_role[0] == 'admin':
-        conn.close()
-        return False, "La réinitialisation du mot de passe n'est pas autorisée pour les comptes administrateurs."
-    
-    hashed_pwd = hashlib.sha256(new_password.encode()).hexdigest()
+    db.connect()
     try:
-        c.execute("UPDATE utilisateurs SET mot_de_passe=%s WHERE email=%s", (hashed_pwd, email))
-        conn.commit()
-        conn.close()
+        # Vérifier si l'utilisateur est un administrateur
+        db.cursor.execute(adapt_query("SELECT role FROM utilisateurs WHERE email=%s", db.config['db_type']), (email,))
+        user_role = db.cursor.fetchone()
+        
+        if user_role and user_role[0] == 'admin':
+            db.close()
+            return False, "La réinitialisation du mot de passe n'est pas autorisée pour les comptes administrateurs."
+        
+        hashed_pwd = hashlib.sha256(new_password.encode()).hexdigest()
+        db.cursor.execute(adapt_query("UPDATE utilisateurs SET mot_de_passe=%s WHERE email=%s", db.config['db_type']), (hashed_pwd, email))
+        db.conn.commit()
+        db.close()
         return True, "Mot de passe mis à jour avec succès."
     except Exception as e:
-        conn.close()
+        db.close()
         return False, f"Erreur lors de la mise à jour du mot de passe: {str(e)}"
 
 # Fonction pour rechercher dans le contenu des PDFs
@@ -676,8 +665,8 @@ def search_in_pdf_content(query):
     """Recherche dans le contenu des PDFs."""
     if not query:
         return pd.DataFrame()
-        
-    conn = sqlite3.connect(DB_PATH)
+    
+    db.connect()
     search_query = f"%{query}%"
     
     try:
@@ -697,7 +686,7 @@ def search_in_pdf_content(query):
         ORDER BY m.date_ajout DESC
         """
         
-        df = pd.read_sql_query(sql, conn, params=(query, search_query))
+        df = pd.read_sql_query(adapt_query(sql, db.config['db_type']), db.conn, params=(query, search_query))
         
         if not df.empty:
             # Améliorer l'affichage du contexte
@@ -717,12 +706,12 @@ def search_in_pdf_content(query):
             df['context'] = df.apply(highlight_context, axis=1)
             df = df.drop('full_content', axis=1)
         
+        db.close()
         return df
     except Exception as e:
         st.error(f"Erreur lors de la recherche dans le contenu PDF : {str(e)}")
+        db.close()
         return pd.DataFrame()
-    finally:
-        conn.close()
 
 def bulk_import_memoires(metadata_file, pdf_folder):
     """
@@ -746,59 +735,31 @@ def bulk_import_memoires(metadata_file, pdf_folder):
         else:
             df = pd.read_excel(metadata_file)
         
-        # Connexion à la base de données
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
-        # Récupération des mappings filières et sessions
-        filieres_df = pd.read_sql("SELECT id, nom FROM filieres", conn)
-        filieres_map = dict(zip(filieres_df['nom'], filieres_df['id']))
-        
-        sessions_df = pd.read_sql("SELECT id, annee_universitaire FROM sessions", conn)
-        sessions_map = dict(zip(sessions_df['annee_universitaire'], sessions_df['id']))
-        
-        # Compteurs pour le rapport
+        db.connect()
+        c = db.cursor
+        filieres_map = {row['nom']: row['id'] for row in pd.read_sql_query(adapt_query('SELECT id, nom FROM filieres', db.config['db_type']), db.conn).to_dict('records')}
+        sessions_map = {row['annee_universitaire']: row['id'] for row in pd.read_sql_query(adapt_query('SELECT id, annee_universitaire FROM sessions', db.config['db_type']), db.conn).to_dict('records')}
+        storage = FileStorage()
         success_count = 0
         error_count = 0
         errors = []
-        
-        # Traitement de chaque ligne
         for idx, row in df.iterrows():
             try:
-                # Vérification des champs obligatoires
-                if pd.isna(row['titre']) or pd.isna(row['auteurs']) or pd.isna(row['encadreur']) or \
-                   pd.isna(row['resume']) or pd.isna(row['filiere_nom']) or \
-                   pd.isna(row['annee_universitaire']) or pd.isna(row['nom_fichier']):
-                    raise ValueError(f"Ligne {idx+2}: Champs obligatoires manquants")
-                
-                # Vérification de l'existence de la filière
-                if row['filiere_nom'] not in filieres_map:
-                    raise ValueError(f"Ligne {idx+2}: Filière '{row['filiere_nom']}' non trouvée")
-                
-                # Vérification de l'existence de la session
-                if row['annee_universitaire'] not in sessions_map:
-                    raise ValueError(f"Ligne {idx+2}: Année universitaire '{row['annee_universitaire']}' non trouvée")
-                
-                # Vérification et traitement du fichier PDF
                 pdf_path = os.path.join(pdf_folder, row['nom_fichier'])
                 if not os.path.exists(pdf_path):
                     raise ValueError(f"Ligne {idx+2}: Fichier PDF '{row['nom_fichier']}' non trouvé")
-                
-                # Copie et enregistrement du PDF
                 with open(pdf_path, 'rb') as pdf_file:
                     new_filename = f"{uuid.uuid4()}.pdf"
                     success, stored_path = storage.save_file(pdf_file, new_filename)
-                    
                     if not success:
                         raise ValueError(f"Ligne {idx+2}: Erreur lors de l'enregistrement du PDF")
-                
-                # Insertion dans la base de données
                 date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                c.execute("""
-                INSERT INTO memoires 
-                (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
+                query = """
+                    INSERT INTO memoires 
+                    (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                c.execute(adapt_query(query, db.config['db_type']), (
                     row['titre'],
                     row['auteurs'],
                     row['encadreur'],
@@ -810,24 +771,20 @@ def bulk_import_memoires(metadata_file, pdf_folder):
                     row.get('version', ''),
                     date_now
                 ))
-                
                 success_count += 1
-                
             except Exception as e:
                 error_count += 1
                 errors.append(str(e))
                 continue
-        
-        conn.commit()
-        conn.close()
-        
+        db.conn.commit()
+        db.close()
         return True, {
             'success_count': success_count,
             'error_count': error_count,
             'errors': errors
         }
-        
     except Exception as e:
+        db.close()
         return False, str(e)
 
 def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder):
@@ -840,9 +797,8 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
     - sessions: annee_universitaire
     """
     try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
+        db.connect()
+        c = db.cursor
         # 1. Import des entités
         if structure_file.name.endswith('.csv'):
             entites_df = pd.read_csv(structure_file)
@@ -852,11 +808,11 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         entites_map = {}  # Pour stocker les IDs des entités créées
         for _, row in entites_df.iterrows():
             try:
-                c.execute("INSERT INTO entites (nom) VALUES (%s)", (row['nom'],))
+                c.execute(adapt_query("INSERT INTO entites (nom) VALUES (%s)", db.config['db_type']), (row['nom'],))
                 entites_map[row['nom']] = c.lastrowid
-            except sqlite3.IntegrityError:
+            except Exception:
                 # Si l'entité existe déjà, récupérer son ID
-                c.execute("SELECT id FROM entites WHERE nom=%s", (row['nom'],))
+                c.execute(adapt_query("SELECT id FROM entites WHERE nom=%s", db.config['db_type']), (row['nom'],))
                 entites_map[row['nom']] = c.fetchone()[0]
         
         # 2. Import des filières
@@ -869,13 +825,11 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         for _, row in filieres_df.iterrows():
             try:
                 entite_id = entites_map[row['entite_nom']]
-                c.execute("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", 
-                         (row['nom'], entite_id))
+                c.execute(adapt_query("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", db.config['db_type']), (row['nom'], entite_id))
                 filieres_map[row['nom']] = c.lastrowid
-            except sqlite3.IntegrityError:
+            except Exception:
                 # Si la filière existe déjà, récupérer son ID
-                c.execute("SELECT id FROM filieres WHERE nom=%s AND entite_id=%s", 
-                         (row['nom'], entite_id))
+                c.execute(adapt_query("SELECT id FROM filieres WHERE nom=%s AND entite_id=%s", db.config['db_type']), (row['nom'], entite_id))
                 filieres_map[row['nom']] = c.fetchone()[0]
         
         # 3. Import des sessions
@@ -887,16 +841,12 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         sessions_map = {}  # Pour stocker les IDs des sessions créées
         for _, row in sessions_df.iterrows():
             try:
-                c.execute("INSERT INTO sessions (annee_universitaire) VALUES (%s)", 
-                         (row['annee_universitaire'],))
+                c.execute(adapt_query("INSERT INTO sessions (annee_universitaire) VALUES (%s)", db.config['db_type']), (row['annee_universitaire'],))
                 sessions_map[row['annee_universitaire']] = c.lastrowid
-            except sqlite3.IntegrityError:
+            except Exception:
                 # Si la session existe déjà, récupérer son ID
-                c.execute("SELECT id FROM sessions WHERE annee_universitaire=%s", 
-                         (row['annee_universitaire'],))
+                c.execute(adapt_query("SELECT id FROM sessions WHERE annee_universitaire=%s", db.config['db_type']), (row['annee_universitaire'],))
                 sessions_map[row['annee_universitaire']] = c.fetchone()[0]
-        
-        conn.commit()
         
         # 4. Import des mémoires
         if metadata_file.name.endswith('.csv'):
@@ -911,10 +861,9 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         for idx, row in memoires_df.iterrows():
             try:
                 # Vérification des champs obligatoires
-                if pd.isna(row['titre']) or pd.isna(row['auteurs']) or \
-                   pd.isna(row['encadreur']) or pd.isna(row['resume']) or \
-                   pd.isna(row['filiere_nom']) or pd.isna(row['annee_universitaire']) or \
-                   pd.isna(row['nom_fichier']):
+                if pd.isna(row['titre']) or pd.isna(row['auteurs']) or pd.isna(row['encadreur']) or \
+                   pd.isna(row['resume']) or pd.isna(row['filiere_nom']) or \
+                   pd.isna(row['annee_universitaire']) or pd.isna(row['nom_fichier']):
                     raise ValueError(f"Ligne {idx+2}: Champs obligatoires manquants")
                 
                 # Vérification du fichier PDF
@@ -932,11 +881,11 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
                 
                 # Insertion du mémoire
                 date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                c.execute("""
+                c.execute(adapt_query("""
                 INSERT INTO memoires 
                 (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
+                """, db.config['db_type']), (
                     row['titre'],
                     row['auteurs'],
                     row['encadreur'],
@@ -956,8 +905,8 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
                 errors.append(str(e))
                 continue
         
-        conn.commit()
-        conn.close()
+        db.conn.commit()
+        db.close()
         
         return True, {
             'entites_count': len(entites_map),
@@ -969,6 +918,7 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         }
         
     except Exception as e:
+        db.close()
         if 'conn' in locals():
             conn.close()
         return False, str(e)
