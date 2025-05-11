@@ -5,6 +5,11 @@ import hashlib
 from datetime import datetime
 from config import get_db_config
 
+def adapt_query(query, db_type):
+    if db_type == "sqlite":
+        return query.replace("%s", "?")
+    return query
+
 class DatabaseManager:
     def __init__(self):
         self.config = get_db_config()
@@ -117,10 +122,10 @@ class DatabaseManager:
                 # Créer l'admin par défaut
                 from config import APP_CONFIG
                 admin_password = hashlib.sha256(APP_CONFIG['admin_password'].encode()).hexdigest()
-                self.cursor.execute("""
+                self.cursor.execute(adapt_query("""
                 INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, role)
                 VALUES (%s, %s, %s, %s, %s)
-                """, ('Administrateur', 'System', APP_CONFIG['admin_email'], admin_password, 'admin'))
+                """, self.config['db_type']), ('Administrateur', 'System', APP_CONFIG['admin_email'], admin_password, 'admin'))
 
             self.conn.commit()
         except Exception as e:
@@ -134,7 +139,7 @@ class DatabaseManager:
         self.connect()
         try:
             # Vérifier si l'email existe déjà
-            self.cursor.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
+            self.cursor.execute(adapt_query("SELECT id FROM utilisateurs WHERE email=%s", self.config['db_type']), (email,))
             if self.cursor.fetchone():
                 return False, "Cet email est déjà utilisé."
 
@@ -142,11 +147,11 @@ class DatabaseManager:
             hashed_pwd = hashlib.sha256(password.encode()).hexdigest()
 
             # Insertion du nouvel utilisateur
-            self.cursor.execute('''
+            self.cursor.execute(adapt_query('''
             INSERT INTO utilisateurs 
             (nom, prenom, email, mot_de_passe, role, date_naissance, genre, telephone) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (nom, prenom, email, hashed_pwd, "user", date_naissance, genre, telephone))
+            ''', self.config['db_type']), (nom, prenom, email, hashed_pwd, "user", date_naissance, genre, telephone))
 
             self.conn.commit()
             return True, "Inscription réussie !"
@@ -161,11 +166,11 @@ class DatabaseManager:
         self.connect()
         try:
             hashed_pwd = hashlib.sha256(password.encode()).hexdigest()
-            self.cursor.execute("""
+            self.cursor.execute(adapt_query("""
                 SELECT id, nom || ' ' || prenom as nom_complet, role 
                 FROM utilisateurs 
                 WHERE email=%s AND mot_de_passe=%s
-            """, (email, hashed_pwd))
+            """, self.config['db_type']), (email, hashed_pwd))
             return self.cursor.fetchone()
         except Exception as e:
             print(f"Erreur lors de l'authentification : {e}")
@@ -178,7 +183,7 @@ class DatabaseManager:
         self.connect()
         try:
             self.cursor.execute(
-                "INSERT INTO logs (action, user_id, date) VALUES (%s, %s, %s)",
+                adapt_query("INSERT INTO logs (action, user_id, date) VALUES (%s, %s, %s)", self.config['db_type']),
                 (action, user_id, datetime.now())
             )
             self.conn.commit()
