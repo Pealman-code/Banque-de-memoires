@@ -10,7 +10,8 @@ Application de gestion et consultation des mémoires universitaires.
 - Gestion des entités et filières
 - Système de journalisation (logs)
 - Interface utilisateur intuitive et moderne
-- Base de données SQLite intégrée
+- Compatible avec PostgreSQL (Supabase) pour la production
+- Base de données SQLite intégrée pour le développement local
 
 ## Installation
 
@@ -27,15 +28,26 @@ streamlit run home.py
 
 ## Configuration
 
-L'application utilise une base de données PostgreSQL en production et SQLite en développement local.
+L'application fonctionne automatiquement avec :
+- **PostgreSQL/Supabase** (recommandé pour la production, ex. : Streamlit Cloud)
+- **SQLite** (par défaut en développement local)
 
 ### Développement local
 - La base de données SQLite est créée automatiquement dans le dossier `data/`
 - Les fichiers uploadés sont stockés dans le dossier `uploads/`
 
-### Production (Streamlit Cloud)
-- Configurez les variables d'environnement dans les secrets Streamlit
-- Utilisez une base de données PostgreSQL externe
+### Production (Streamlit Cloud ou Supabase)
+- Configurez les variables de connexion dans `.streamlit/secrets.toml` :
+```toml
+db_type = "postgresql"
+db_host = "<hôte_supabase>"
+db_port = "5432"
+db_name = "<nom_db>"
+db_user = "<utilisateur>"
+db_password = "<mot_de_passe>"
+```
+- Les tables seront créées automatiquement à la première exécution de l'application.
+- Utilisez une base PostgreSQL dédiée (évitez d'utiliser la base "postgres" par défaut).
 
 ## Utilisation
 
@@ -73,7 +85,8 @@ git push -u origin main
 ## Dépendances principales
 
 - Streamlit : Interface utilisateur web
-- SQLite3 : Base de données
+- psycopg2-binary : Connexion PostgreSQL/Supabase
+- SQLite3 : Base de données locale
 - Pandas : Manipulation des données
 - PyPDF2 : Gestion des fichiers PDF
 
