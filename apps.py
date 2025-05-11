@@ -207,7 +207,7 @@ def add_entity(nom):
         # Nettoyage du nom : suppression des espaces et passage en majuscules
         nom_clean = nom.strip().upper()
         db.connect()
-        db.cursor.execute("INSERT INTO entites (nom) VALUES (%s)", (nom_clean,))
+        db.cursor.execute(adapt_query("INSERT INTO entites (nom) VALUES (%s)", db.config['db_type']), (nom_clean,))
         db.conn.commit()
         result = (True, f"Entité '{nom_clean}' ajoutée avec succès.")
     except Exception as e:
