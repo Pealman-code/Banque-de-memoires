@@ -9,7 +9,7 @@ from datetime import datetime
 from io import BytesIO
 import time
 from storage import FileStorage
-from database import db
+from database import db, adapt_query
 
 # Configuration du thème global
 st.markdown("""
