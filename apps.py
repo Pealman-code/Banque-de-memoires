@@ -288,7 +288,7 @@ def add_session(annee):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO sessions (annee_universitaire) VALUES (%s)", (annee,))
+        c.execute(adapt_query("INSERT INTO sessions (annee_universitaire) VALUES (%s)", db.config['db_type']), (annee,))
         conn.commit()
         result = True, "Session ajoutée avec succès."
     except sqlite3.IntegrityError:
