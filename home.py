@@ -36,7 +36,7 @@ def show_welcome_page():
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col1:
-            st.image("assets/unstim.png", use_column_width=True)
+            st.image("assets/unstim.png", use_container_width=True)
         
         with col2:
             st.markdown("""
@@ -51,7 +51,7 @@ def show_welcome_page():
             """, unsafe_allow_html=True)
         
         with col3:
-            st.image("assets/mesrs.png", use_column_width=True)
+            st.image("assets/mesrs.png", use_container_width=True)
 
     # Section d'authentification avec style amélioré
     with st.container():
