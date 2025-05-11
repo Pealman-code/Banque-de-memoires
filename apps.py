@@ -204,12 +204,20 @@ def check_auth(email, password):
 # Fonction pour ajouter une entité
 def add_entity(nom):
     try:
+        # Nettoyage du nom : suppression des espaces et passage en majuscules
+        nom_clean = nom.strip().upper()
         db.connect()
-        db.cursor.execute("INSERT INTO entites (nom) VALUES (%s)", (nom,))
+        db.cursor.execute("INSERT INTO entites (nom) VALUES (%s)", (nom_clean,))
         db.conn.commit()
-        result = True
+        result = (True, f"Entité '{nom_clean}' ajoutée avec succès.")
     except Exception as e:
-        result = False
+        # Gestion d'erreur détaillée pour duplication ou autre problème
+        if hasattr(e, 'pgcode') and e.pgcode == '23505':  # PostgreSQL unique_violation
+            result = (False, f"L'entité '{nom_clean}' existe déjà dans la base de données.")
+        elif 'UNIQUE constraint failed' in str(e):  # SQLite
+            result = (False, f"L'entité '{nom_clean}' existe déjà dans la base de données.")
+        else:
+            result = (False, f"Erreur lors de l'ajout de l'entité : {str(e)}")
     finally:
         db.close()
     return result
@@ -1480,10 +1488,6 @@ def show_statistics_page():
             st.subheader("Mémoires par année universitaire")
             if not stats['memoires_par_annee'].empty:
                 # Inverser l'ordre pour avoir les années les plus récentes à droite
-                chart_data = stats['memoires_par_annee'].sort_values('annee_universitaire')
-                st.bar_chart(chart_data.set_index('annee_universitaire'))
-            else:
-                st.info("Aucune donnée disponible")
 
 def show_entities_management():
     st.header("🏢 Gestion des Entités")
@@ -1499,16 +1503,25 @@ def show_entities_management():
             
             if st.button("Ajouter l'entité"):
                 if entity_name:
-                    if add_entity(entity_name):
+                    success, message = add_entity(entity_name)
+                    if success:
                         add_log(f"Ajout de l'entité: {entity_name}", st.session_state.user_id)
-                        st.success(f"L'entité '{entity_name}' a été ajoutée avec succès.")
-                        #st.session_state.entity_name = ""
+                        st.success(message)
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error(f"L'entité '{entity_name}' existe déjà.")
+                        st.error(message)
                 else:
-                    st.warning("Veuillez saisir un nom d'entité.")
+                    st.warning("Veuillez entrer un nom d'entité.")
+            
+            st.markdown("---")
+            st.subheader("Liste des entités existantes (DEBUG)")
+            # DEBUG: Afficher toutes les entités actuelles
+            entities_df = get_all_entities()
+            if not entities_df.empty:
+                st.dataframe(entities_df)
+            else:
+                st.info("Aucune entité trouvée dans la base de données.")
         
         with col2:
             st.subheader("Liste des entités")
