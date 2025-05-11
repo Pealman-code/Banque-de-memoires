@@ -274,122 +274,85 @@ def init_db():
 
 # Fonction pour ajouter un log
 def add_log(action, user_id=None):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO logs (action, user_id, date) VALUES (%s, %s, %s)", 
-             (action, user_id, date_now))
-    conn.commit()
-    conn.close()
+    db.add_log(action, user_id)
 
 # Fonction pour vérifier l'authentification
 def check_auth(email, password):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    try:
-        # Hash du mot de passe avec la même méthode que lors de l'inscription
-        hashed_pwd = hashlib.sha256(password.encode()).hexdigest()
-        
-        # Vérification de l'utilisateur
-        c.execute("""
-            SELECT id, nom || ' ' || prenom as nom_complet, role 
-            FROM utilisateurs 
-            WHERE email=%s AND mot_de_passe=%s
-        """, (email, hashed_pwd))
-        
-        user = c.fetchone()
-        
-        # Journalisation de la tentative de connexion
-        success = user is not None
-        add_log(f"Tentative de connexion {'réussie' if success else 'échouée'} pour {email}")
-        
-        return user
-    except Exception as e:
-        print(f"Erreur lors de l'authentification : {e}")
-        return None
-    finally:
-        conn.close()
+    return db.check_auth(email, password)
 
 # Fonction pour ajouter une entité
 def add_entity(nom):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
     try:
-        c.execute("INSERT INTO entites (nom) VALUES (%s)", (nom,))
-        conn.commit()
+        db.connect()
+        db.cursor.execute("INSERT INTO entites (nom) VALUES (%s)", (nom,))
+        db.conn.commit()
         result = True
-    except sqlite3.IntegrityError:
+    except Exception as e:
         result = False
-    conn.close()
+    finally:
+        db.close()
     return result
 
 # Fonction pour récupérer toutes les entités
 def get_all_entities():
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT * FROM entites ORDER BY nom", conn)
-    conn.close()
+    db.connect()
+    df = pd.read_sql_query("SELECT * FROM entites ORDER BY nom", db.conn)
+    db.close()
     return df
 
 # Fonction pour supprimer une entité
 def delete_entity(entity_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Vérifier si l'entité est utilisée dans une filière
-    c.execute("SELECT COUNT(*) FROM filieres WHERE entite_id=%s", (entity_id,))
-    count = c.fetchone()[0]
-    if count > 0:
-        conn.close()
-        return False, "Cette entité est associée à des filières et ne peut pas être supprimée."
-    
-    # Supprimer l'entité
-    c.execute("DELETE FROM entites WHERE id=%s", (entity_id,))
-    conn.commit()
-    conn.close()
-    return True, "Entité supprimée avec succès."
+    db.connect()
+    try:
+        db.cursor.execute("SELECT COUNT(*) FROM filieres WHERE entite_id=%s", (entity_id,))
+        count = db.cursor.fetchone()[0]
+        if count > 0:
+            return False, "Cette entité est associée à des filières et ne peut pas être supprimée."
+        db.cursor.execute("DELETE FROM entites WHERE id=%s", (entity_id,))
+        db.conn.commit()
+        return True, "Entité supprimée avec succès."
+    finally:
+        db.close()
 
 # Fonction pour ajouter une filière
 def add_filiere(nom, entite_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
     try:
-        c.execute("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", (nom, entite_id))
-        conn.commit()
+        db.connect()
+        db.cursor.execute("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", (nom, entite_id))
+        db.conn.commit()
         result = True, "Filière ajoutée avec succès."
-    except sqlite3.IntegrityError:
+    except Exception:
         result = False, "Cette filière existe déjà pour cette entité."
-    conn.close()
+    finally:
+        db.close()
     return result
 
 # Fonction pour récupérer toutes les filières
 def get_all_filieres():
-    conn = sqlite3.connect(DB_PATH)
+    db.connect()
     query = """
     SELECT f.id, f.nom, e.nom as entite_nom, f.entite_id 
     FROM filieres f 
     JOIN entites e ON f.entite_id = e.id 
     ORDER BY e.nom, f.nom
     """
-    df = pd.read_sql_query(query, conn)
-    conn.close()
+    df = pd.read_sql_query(query, db.conn)
+    db.close()
     return df
 
 # Fonction pour supprimer une filière
 def delete_filiere(filiere_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    # Vérifier si la filière est utilisée dans un mémoire
-    c.execute("SELECT COUNT(*) FROM memoires WHERE filiere_id=%s", (filiere_id,))
-    count = c.fetchone()[0]
-    if count > 0:
-        conn.close()
-        return False, "Cette filière est associée à des mémoires et ne peut pas être supprimée."
-    
-    # Supprimer la filière
-    c.execute("DELETE FROM filieres WHERE id=%s", (filiere_id,))
-    conn.commit()
-    conn.close()
-    return True, "Filière supprimée avec succès."
+    db.connect()
+    try:
+        db.cursor.execute("SELECT COUNT(*) FROM memoires WHERE filiere_id=%s", (filiere_id,))
+        count = db.cursor.fetchone()[0]
+        if count > 0:
+            return False, "Cette filière est associée à des mémoires et ne peut pas être supprimée."
+        db.cursor.execute("DELETE FROM filieres WHERE id=%s", (filiere_id,))
+        db.conn.commit()
+        return True, "Filière supprimée avec succès."
+    finally:
+        db.close()
 
 # Fonction pour ajouter une session
 def add_session(annee):
@@ -745,39 +708,14 @@ def get_download_link(file_path, label):
 
 # Fonction pour inscrire un visiteur
 def register_visitor(nom, prenom, email, password, date_naissance, genre, telephone):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    try:
-        # Vérifier si l'email existe déjà
-        c.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
-        if c.fetchone():
-            conn.close()
-            return False, "Cet email est déjà utilisé."
-        
-        # Hash du mot de passe
-        hashed_pwd = hashlib.sha256(password.encode()).hexdigest()
-        
-        # Insertion du nouveau visiteur
-        c.execute('''
-        INSERT INTO utilisateurs 
-        (nom, prenom, email, mot_de_passe, role, date_naissance, genre, telephone) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (nom, prenom, email, hashed_pwd, "visitor", date_naissance, genre, telephone))
-        
-        conn.commit()
-        conn.close()
-        return True, "Inscription réussie !"
-    except Exception as e:
-        conn.close()
-        return False, f"Erreur lors de l'inscription: {str(e)}"
+    return db.register_user(nom, prenom, email, password, date_naissance, genre, telephone)
 
 # Fonction pour vérifier si un email existe
 def check_email_exists(email):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
-    result = c.fetchone()
-    conn.close()
+    db.connect()
+    db.cursor.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
+    result = db.cursor.fetchone()
+    db.close()
     return result is not None
 
 # Fonction pour mettre à jour le mot de passe
