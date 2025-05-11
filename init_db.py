@@ -1,4 +1,4 @@
-import sqlite3
+
 import os
 import hashlib
 
@@ -8,7 +8,7 @@ import hashlib
     os.makedirs('data', exist_ok=True)
     
     # Connexion à la base de données
-    conn = sqlite3.connect('data/memoires_db.sqlite')
+    # Connexion SQLite supprimée pour PostgreSQL
     c = conn.cursor()
     
     # Création des tables

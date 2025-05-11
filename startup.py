@@ -3,7 +3,7 @@ import streamlit as st
 from backup_manager import BackupManager
 from local_storage import storage
 from datetime import datetime
-import sqlite3
+
 
 def setup_directories():
     """Crée tous les dossiers nécessaires."""
@@ -20,10 +20,10 @@ def setup_directories():
 # Ce script n'est plus nécessaire. Lance simplement l'application Streamlit pour initialiser la base via db.init_db().
 
     """Vérifie et initialise la base de données."""
-    db_path = "data/memoires_db.sqlite"
+    # db_path SQLite supprimé pour PostgreSQL
     if not os.path.exists(db_path):
         print("! Base de données non trouvée, création en cours...")
-        conn = sqlite3.connect(db_path)
+        # Connexion SQLite supprimée pour PostgreSQL
         c = conn.cursor()
         
         # Création des tables nécessaires

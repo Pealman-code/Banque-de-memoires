@@ -211,7 +211,7 @@ def add_entity(nom):
         # Gestion d'erreur détaillée pour duplication ou autre problème
         if hasattr(e, 'pgcode') and e.pgcode == '23505':  # PostgreSQL unique_violation
             result = (False, f"L'entité '{nom_clean}' existe déjà dans la base de données.")
-        elif 'UNIQUE constraint failed' in str(e):  # SQLite
+        elif 'duplicate key value violates unique constraint' in str(e):  # PostgreSQL
             result = (False, f"L'entité '{nom_clean}' existe déjà dans la base de données.")
         else:
             result = (False, f"Erreur lors de l'ajout de l'entité : {str(e)}")
@@ -2147,7 +2147,7 @@ def show_logs():
     container = st.container()
     with container:
         # Connexion à la base de données
-        conn = sqlite3.connect(DB_PATH)
+        # Connexion SQLite supprimée pour PostgreSQL
         
         # Récupération des logs avec noms d'utilisateurs
         query = """

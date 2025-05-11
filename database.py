@@ -1,4 +1,4 @@
-import sqlite3
+
 import psycopg2
 from psycopg2.extras import DictCursor
 import hashlib
@@ -6,7 +6,7 @@ from datetime import datetime
 from config import get_db_config
 
 def adapt_query(query, db_type):
-    if db_type == "sqlite":
+    # Bloc SQLite désactivé pour PostgreSQL
         return query.replace("%s", "?")
     return query
 
@@ -18,7 +18,7 @@ class DatabaseManager:
 
     def connect(self):
         if self.config['db_type'] == 'sqlite':
-            self.conn = sqlite3.connect(self.config['db_path'])
+            # Connexion SQLite supprimée pour PostgreSQL
             self.cursor = self.conn.cursor()
         else:  # PostgreSQL
             self.conn = psycopg2.connect(

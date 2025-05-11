@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime
-import sqlite3
+
 import time
 
 class BackupManager:
@@ -11,7 +11,7 @@ class BackupManager:
         os.makedirs(self.backup_dir, exist_ok=True)
         
         # Configuration
-        self.db_path = "data/memoires_db.sqlite"
+        # self.db_path n'est plus utilisé pour PostgreSQL
         self.max_backups = 5  # Nombre maximum de sauvegardes à conserver
         
     def create_backup(self):
@@ -24,16 +24,16 @@ class BackupManager:
                 
             # Créer le nom du fichier de sauvegarde avec la date
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = os.path.join(self.backup_dir, f"backup_{timestamp}.sqlite")
+            # backup_path SQLite supprimé pour PostgreSQL
             
             # Attendre que la base soit disponible
             while True:
                 try:
                     # Tester la connexion
-                    conn = sqlite3.connect(self.db_path)
+                    # Connexion SQLite supprimée pour PostgreSQL
                     conn.close()
                     break
-                except sqlite3.OperationalError:
+                except Exception:
                     time.sleep(1)
             
             # Copier le fichier
@@ -55,7 +55,7 @@ class BackupManager:
             # Lister toutes les sauvegardes
             backups = []
             for f in os.listdir(self.backup_dir):
-                if f.startswith("backup_") and f.endswith(".sqlite"):
+                # Nettoyage des fichiers backup SQLite supprimé pour PostgreSQL
                     full_path = os.path.join(self.backup_dir, f)
                     backups.append((full_path, os.path.getmtime(full_path)))
             
@@ -99,7 +99,7 @@ class BackupManager:
         try:
             backups = []
             for f in os.listdir(self.backup_dir):
-                if f.startswith("backup_") and f.endswith(".sqlite"):
+                # Nettoyage des fichiers backup SQLite supprimé pour PostgreSQL
                     path = os.path.join(self.backup_dir, f)
                     size = os.path.getsize(path) / (1024 * 1024)  # Taille en MB
                     date = datetime.fromtimestamp(os.path.getmtime(path))

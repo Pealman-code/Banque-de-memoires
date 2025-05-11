@@ -1,4 +1,4 @@
-import sqlite3
+
 import os
 import boto3
 import json
@@ -25,12 +25,12 @@ class DatabaseManager:
                 region_name=os.getenv('AWS_REGION')
             )
             self.bucket_name = os.getenv('AWS_BUCKET_NAME')
-            self.db_key = 'memoires_db.sqlite'
+            # self.db_key n'est plus utilisé pour PostgreSQL
             
             # Créer un dossier temporaire pour la base de données
             self.temp_dir = '/tmp/memoires_db'
             os.makedirs(self.temp_dir, exist_ok=True)
-            self.db_path = os.path.join(self.temp_dir, 'memoires_db.sqlite')
+            # self.db_path n'est plus utilisé pour PostgreSQL
             
             # Restaurer la base de données au démarrage
             self._restore_from_s3()
@@ -40,7 +40,7 @@ class DatabaseManager:
         else:
             # Local configuration for development
             os.makedirs("data", exist_ok=True)
-            self.db_path = "data/memoires_db.sqlite"
+            # self.db_path n'est plus utilisé pour PostgreSQL
 
     def _restore_from_s3(self):
         """Restaure la base de données depuis S3 avec gestion des erreurs."""
@@ -81,8 +81,8 @@ class DatabaseManager:
 # def get_connection(self):
         """Obtient une connexion à la base de données avec verrouillage."""
         with self.lock:
-            conn = sqlite3.connect(self.db_path, timeout=20)
-            conn.row_factory = sqlite3.Row
+            # Connexion SQLite supprimée pour PostgreSQL
+            # row_factory SQLite supprimé pour PostgreSQL
             return conn
 
     def check_backup_needed(self):
@@ -108,7 +108,7 @@ class DatabaseManager:
             
             return cursor.fetchall() if not commit else None
             
-        except sqlite3.Error as e:
+        except Exception as e:
             if conn:
                 conn.rollback()
             print(f"Erreur SQL: {e}")
@@ -126,7 +126,7 @@ class DatabaseManager:
             cursor.executemany(query, params_list)
             conn.commit()
             self.check_backup_needed()
-        except sqlite3.Error as e:
+        except Exception as e:
             if conn:
                 conn.rollback()
             print(f"Erreur SQL: {e}")
@@ -204,7 +204,7 @@ class DatabaseManager:
             conn.commit()
             if self.is_production:
                 self._backup_to_s3()
-        except sqlite3.Error as e:
+        except Exception as e:
             if conn:
                 conn.rollback()
             print(f"Erreur lors de l'initialisation de la base de données: {e}")
