@@ -277,7 +277,7 @@ def add_log(action, user_id=None):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO logs (action, user_id, date) VALUES (?, ?, ?)", 
+    c.execute("INSERT INTO logs (action, user_id, date) VALUES (%s, %s, %s)", 
              (action, user_id, date_now))
     conn.commit()
     conn.close()
@@ -295,7 +295,7 @@ def check_auth(email, password):
         c.execute("""
             SELECT id, nom || ' ' || prenom as nom_complet, role 
             FROM utilisateurs 
-            WHERE email=? AND mot_de_passe=?
+            WHERE email=%s AND mot_de_passe=%s
         """, (email, hashed_pwd))
         
         user = c.fetchone()
@@ -316,7 +316,7 @@ def add_entity(nom):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO entites (nom) VALUES (?)", (nom,))
+        c.execute("INSERT INTO entites (nom) VALUES (%s)", (nom,))
         conn.commit()
         result = True
     except sqlite3.IntegrityError:
@@ -336,14 +336,14 @@ def delete_entity(entity_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Vérifier si l'entité est utilisée dans une filière
-    c.execute("SELECT COUNT(*) FROM filieres WHERE entite_id=?", (entity_id,))
+    c.execute("SELECT COUNT(*) FROM filieres WHERE entite_id=%s", (entity_id,))
     count = c.fetchone()[0]
     if count > 0:
         conn.close()
         return False, "Cette entité est associée à des filières et ne peut pas être supprimée."
     
     # Supprimer l'entité
-    c.execute("DELETE FROM entites WHERE id=?", (entity_id,))
+    c.execute("DELETE FROM entites WHERE id=%s", (entity_id,))
     conn.commit()
     conn.close()
     return True, "Entité supprimée avec succès."
@@ -353,7 +353,7 @@ def add_filiere(nom, entite_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO filieres (nom, entite_id) VALUES (?, ?)", (nom, entite_id))
+        c.execute("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", (nom, entite_id))
         conn.commit()
         result = True, "Filière ajoutée avec succès."
     except sqlite3.IntegrityError:
@@ -379,14 +379,14 @@ def delete_filiere(filiere_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Vérifier si la filière est utilisée dans un mémoire
-    c.execute("SELECT COUNT(*) FROM memoires WHERE filiere_id=?", (filiere_id,))
+    c.execute("SELECT COUNT(*) FROM memoires WHERE filiere_id=%s", (filiere_id,))
     count = c.fetchone()[0]
     if count > 0:
         conn.close()
         return False, "Cette filière est associée à des mémoires et ne peut pas être supprimée."
     
     # Supprimer la filière
-    c.execute("DELETE FROM filieres WHERE id=?", (filiere_id,))
+    c.execute("DELETE FROM filieres WHERE id=%s", (filiere_id,))
     conn.commit()
     conn.close()
     return True, "Filière supprimée avec succès."
@@ -396,7 +396,7 @@ def add_session(annee):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO sessions (annee_universitaire) VALUES (?)", (annee,))
+        c.execute("INSERT INTO sessions (annee_universitaire) VALUES (%s)", (annee,))
         conn.commit()
         result = True, "Session ajoutée avec succès."
     except sqlite3.IntegrityError:
@@ -416,14 +416,14 @@ def delete_session(session_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Vérifier si la session est utilisée dans un mémoire
-    c.execute("SELECT COUNT(*) FROM memoires WHERE session_id=?", (session_id,))
+    c.execute("SELECT COUNT(*) FROM memoires WHERE session_id=%s", (session_id,))
     count = c.fetchone()[0]
     if count > 0:
         conn.close()
         return False, "Cette session est associée à des mémoires et ne peut pas être supprimée."
     
     # Supprimer la session
-    c.execute("DELETE FROM sessions WHERE id=?", (session_id,))
+    c.execute("DELETE FROM sessions WHERE id=%s", (session_id,))
     conn.commit()
     conn.close()
     return True, "Session supprimée avec succès."
@@ -443,13 +443,13 @@ def save_pdf_content(memoire_id, pdf_content):
     
     try:
         # Supprimer l'ancien contenu s'il existe
-        c.execute("DELETE FROM pdf_content WHERE memoire_id = ?", (memoire_id,))
+        c.execute("DELETE FROM pdf_content WHERE memoire_id = %s", (memoire_id,))
         
         # Insérer le nouveau contenu
         for page in pdf_content:
             c.execute("""
             INSERT INTO pdf_content (memoire_id, page_num, content)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """, (memoire_id, page['page_num'], page['text']))
         
         conn.commit()
@@ -471,7 +471,7 @@ def add_memoire(titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id
         c.execute("""
         INSERT INTO memoires 
         (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_now))
         
         conn.commit()
@@ -510,7 +510,7 @@ def delete_memoire(memoire_id):
     
     try:
         # Vérifier si le mémoire existe
-        c.execute("SELECT id, fichier_url FROM memoires WHERE id = ?", (memoire_id,))
+        c.execute("SELECT id, fichier_url FROM memoires WHERE id = %s", (memoire_id,))
         result = c.fetchone()
         
         if result is None:
@@ -520,10 +520,10 @@ def delete_memoire(memoire_id):
         file_path = result[1]
         
         # Supprimer d'abord les références dans la table favoris
-        c.execute("DELETE FROM favoris WHERE memoire_id = ?", (memoire_id,))
+        c.execute("DELETE FROM favoris WHERE memoire_id = %s", (memoire_id,))
         
         # Supprimer le mémoire de la base de données
-        c.execute("DELETE FROM memoires WHERE id = ?", (memoire_id,))
+        c.execute("DELETE FROM memoires WHERE id = %s", (memoire_id,))
         
         # Supprimer le fichier PDF si nécessaire
         if file_path and file_path.startswith("local://"):
@@ -552,7 +552,7 @@ def search_memoires(query, entity=None, filiere=None, session=None):
     # Construire la condition de recherche texte
     if query:
         text_search = """
-        (m.titre LIKE ? OR m.auteurs LIKE ? OR m.encadreur LIKE ? OR m.resume LIKE ? OR m.tags LIKE ?)
+        (m.titre LIKE %s OR m.auteurs LIKE %s OR m.encadreur LIKE %s OR m.resume LIKE %s OR m.tags LIKE %s)
         """
         for _ in range(5):
             params.append(f"%{query}%")
@@ -560,15 +560,15 @@ def search_memoires(query, entity=None, filiere=None, session=None):
     
     # Ajouter les filtres supplémentaires
     if entity:
-        conditions.append("e.id = ?")
+        conditions.append("e.id = %s")
         params.append(entity)
     
     if filiere:
-        conditions.append("f.id = ?")
+        conditions.append("f.id = %s")
         params.append(filiere)
     
     if session:
-        conditions.append("s.id = ?")
+        conditions.append("s.id = %s")
         params.append(session)
     
     # Construire la requête SQL
@@ -594,7 +594,7 @@ def search_memoires(query, entity=None, filiere=None, session=None):
 # Fonction pour obtenir les filieres d'une entité
 def get_filieres_by_entity(entity_id):
     conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT id, nom FROM filieres WHERE entite_id=? ORDER BY nom", conn, params=(entity_id,))
+    df = pd.read_sql_query("SELECT id, nom FROM filieres WHERE entite_id=%s ORDER BY nom", conn, params=(entity_id,))
     conn.close()
     return df
 
@@ -609,7 +609,7 @@ def get_memoire_details(memoire_id):
     JOIN filieres f ON m.filiere_id = f.id
     JOIN sessions s ON m.session_id = s.id
     JOIN entites e ON f.entite_id = e.id
-    WHERE m.id = ?
+    WHERE m.id = %s
     """
     df = pd.read_sql_query(query, conn, params=(memoire_id,))
     conn.close()
@@ -625,14 +625,14 @@ def update_memoire(memoire_id, titre, auteurs, encadreur, resume, fichier_url, t
         if fichier_url:  # Nouveau fichier PDF
             c.execute("""
             UPDATE memoires 
-            SET titre=?, auteurs=?, encadreur=?, resume=?, fichier_url=?, tags=?, filiere_id=?, session_id=?, version=?
-            WHERE id=?
+            SET titre=%s, auteurs=%s, encadreur=%s, resume=%s, fichier_url=%s, tags=%s, filiere_id=%s, session_id=%s, version=%s
+            WHERE id=%s
             """, (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, memoire_id))
         else:  # Pas de nouveau fichier PDF
             c.execute("""
             UPDATE memoires 
-            SET titre=?, auteurs=?, encadreur=?, resume=?, tags=?, filiere_id=?, session_id=?, version=?
-            WHERE id=?
+            SET titre=%s, auteurs=%s, encadreur=%s, resume=%s, tags=%s, filiere_id=%s, session_id=%s, version=%s
+            WHERE id=%s
             """, (titre, auteurs, encadreur, resume, tags, filiere_id, session_id, version, memoire_id))
         
         conn.commit()
@@ -749,7 +749,7 @@ def register_visitor(nom, prenom, email, password, date_naissance, genre, teleph
     c = conn.cursor()
     try:
         # Vérifier si l'email existe déjà
-        c.execute("SELECT id FROM utilisateurs WHERE email=?", (email,))
+        c.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
         if c.fetchone():
             conn.close()
             return False, "Cet email est déjà utilisé."
@@ -761,7 +761,7 @@ def register_visitor(nom, prenom, email, password, date_naissance, genre, teleph
         c.execute('''
         INSERT INTO utilisateurs 
         (nom, prenom, email, mot_de_passe, role, date_naissance, genre, telephone) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (nom, prenom, email, hashed_pwd, "visitor", date_naissance, genre, telephone))
         
         conn.commit()
@@ -775,7 +775,7 @@ def register_visitor(nom, prenom, email, password, date_naissance, genre, teleph
 def check_email_exists(email):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT id FROM utilisateurs WHERE email=?", (email,))
+    c.execute("SELECT id FROM utilisateurs WHERE email=%s", (email,))
     result = c.fetchone()
     conn.close()
     return result is not None
@@ -786,7 +786,7 @@ def update_password(email, new_password):
     c = conn.cursor()
     
     # Vérifier si l'utilisateur est un administrateur
-    c.execute("SELECT role FROM utilisateurs WHERE email=?", (email,))
+    c.execute("SELECT role FROM utilisateurs WHERE email=%s", (email,))
     user_role = c.fetchone()
     
     if user_role and user_role[0] == 'admin':
@@ -795,7 +795,7 @@ def update_password(email, new_password):
     
     hashed_pwd = hashlib.sha256(new_password.encode()).hexdigest()
     try:
-        c.execute("UPDATE utilisateurs SET mot_de_passe=? WHERE email=?", (hashed_pwd, email))
+        c.execute("UPDATE utilisateurs SET mot_de_passe=%s WHERE email=%s", (hashed_pwd, email))
         conn.commit()
         conn.close()
         return True, "Mot de passe mis à jour avec succès."
@@ -819,13 +819,13 @@ def search_in_pdf_content(query):
                m.date_ajout, e.nom as entite_nom,
                pc.page_num,
                pc.content as full_content,
-               substr(pc.content, max(0, instr(lower(pc.content), lower(?)) - 100), 200) as context
+               substr(pc.content, max(0, instr(lower(pc.content), lower(%s)) - 100), 200) as context
         FROM memoires m
         JOIN filieres f ON m.filiere_id = f.id
         JOIN sessions s ON m.session_id = s.id
         JOIN entites e ON f.entite_id = e.id
         JOIN pdf_content pc ON m.id = pc.memoire_id
-        WHERE lower(pc.content) LIKE lower(?)
+        WHERE lower(pc.content) LIKE lower(%s)
         ORDER BY m.date_ajout DESC
         """
         
@@ -929,7 +929,7 @@ def bulk_import_memoires(metadata_file, pdf_folder):
                 c.execute("""
                 INSERT INTO memoires 
                 (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     row['titre'],
                     row['auteurs'],
@@ -984,11 +984,11 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         entites_map = {}  # Pour stocker les IDs des entités créées
         for _, row in entites_df.iterrows():
             try:
-                c.execute("INSERT INTO entites (nom) VALUES (?)", (row['nom'],))
+                c.execute("INSERT INTO entites (nom) VALUES (%s)", (row['nom'],))
                 entites_map[row['nom']] = c.lastrowid
             except sqlite3.IntegrityError:
                 # Si l'entité existe déjà, récupérer son ID
-                c.execute("SELECT id FROM entites WHERE nom=?", (row['nom'],))
+                c.execute("SELECT id FROM entites WHERE nom=%s", (row['nom'],))
                 entites_map[row['nom']] = c.fetchone()[0]
         
         # 2. Import des filières
@@ -1001,12 +1001,12 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         for _, row in filieres_df.iterrows():
             try:
                 entite_id = entites_map[row['entite_nom']]
-                c.execute("INSERT INTO filieres (nom, entite_id) VALUES (?, ?)", 
+                c.execute("INSERT INTO filieres (nom, entite_id) VALUES (%s, %s)", 
                          (row['nom'], entite_id))
                 filieres_map[row['nom']] = c.lastrowid
             except sqlite3.IntegrityError:
                 # Si la filière existe déjà, récupérer son ID
-                c.execute("SELECT id FROM filieres WHERE nom=? AND entite_id=?", 
+                c.execute("SELECT id FROM filieres WHERE nom=%s AND entite_id=%s", 
                          (row['nom'], entite_id))
                 filieres_map[row['nom']] = c.fetchone()[0]
         
@@ -1019,12 +1019,12 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
         sessions_map = {}  # Pour stocker les IDs des sessions créées
         for _, row in sessions_df.iterrows():
             try:
-                c.execute("INSERT INTO sessions (annee_universitaire) VALUES (?)", 
+                c.execute("INSERT INTO sessions (annee_universitaire) VALUES (%s)", 
                          (row['annee_universitaire'],))
                 sessions_map[row['annee_universitaire']] = c.lastrowid
             except sqlite3.IntegrityError:
                 # Si la session existe déjà, récupérer son ID
-                c.execute("SELECT id FROM sessions WHERE annee_universitaire=?", 
+                c.execute("SELECT id FROM sessions WHERE annee_universitaire=%s", 
                          (row['annee_universitaire'],))
                 sessions_map[row['annee_universitaire']] = c.fetchone()[0]
         
@@ -1067,7 +1067,7 @@ def bulk_import_structure_and_memoires(structure_file, metadata_file, pdf_folder
                 c.execute("""
                 INSERT INTO memoires 
                 (titre, auteurs, encadreur, resume, fichier_url, tags, filiere_id, session_id, version, date_ajout)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     row['titre'],
                     row['auteurs'],
@@ -1198,7 +1198,7 @@ def show_login_page():
         login_pressed = st.button("Se connecter", key="login", use_container_width=True)
         
         # Lien mot de passe oublié
-        forgot_password = st.button("Mot de passe oublié ?", type="secondary", key="forgot_password", use_container_width=False)
+        forgot_password = st.button("Mot de passe oublié %s", type="secondary", key="forgot_password", use_container_width=False)
         
         # Ligne de séparation
         st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
@@ -1446,7 +1446,7 @@ def show_home_page():
                 st.markdown(f"**Mots-clés:** {memoire['tags']}")
                 
                 # Lien vers la page de recherche pour voir les détails
-                st.markdown(f"[🔍 Voir les détails dans la page Recherche](/Recherche?memoire_id={memoire['id']})", unsafe_allow_html=True)
+                st.markdown(f"[🔍 Voir les détails dans la page Recherche](/Recherche%smemoire_id={memoire['id']})", unsafe_allow_html=True)
     
     # Guide d'utilisation rapide
     st.subheader("Guide d'utilisation")
@@ -2034,7 +2034,7 @@ def show_memoires_management():
             # Guide d'utilisation
             with st.expander("📖 Guide d'utilisation", expanded=True):
                 st.markdown("""
-                ### Comment utiliser l'import en masse ?
+                ### Comment utiliser l'import en masse %s
                 
                 1. **Préparez votre fichier Excel ou CSV** avec les colonnes suivantes :
                    - `titre` (obligatoire)
@@ -2109,7 +2109,7 @@ def show_memoires_management():
             # Guide d'utilisation
             with st.expander("📖 Guide d'utilisation", expanded=True):
                 st.markdown("""
-                ### Comment utiliser l'import complet ?
+                ### Comment utiliser l'import complet %s
                 
                 Cette fonction permet d'importer à la fois la structure (entités, filières, sessions) et les mémoires.
                 
@@ -2290,7 +2290,7 @@ def show_memoires_management():
                                     st.session_state[confirm_key] = True
                                     st.rerun()
                             else:
-                                st.warning("Êtes-vous sûr de vouloir supprimer ce mémoire ?")
+                                st.warning("Êtes-vous sûr de vouloir supprimer ce mémoire %s")
                                 conf_col1, conf_col2 = st.columns(2)
                                 
                                 with conf_col1:
