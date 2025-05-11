@@ -77,7 +77,8 @@ class DatabaseManager:
         except Exception as e:
             print(f"Erreur lors de la sauvegarde vers S3: {e}")
 
-    def get_connection(self):
+    # Cette classe n'est plus utilisée. Utilise database.py (DatabaseManager) pour toute opération BDD.
+# def get_connection(self):
         """Obtient une connexion à la base de données avec verrouillage."""
         with self.lock:
             conn = sqlite3.connect(self.db_path, timeout=20)

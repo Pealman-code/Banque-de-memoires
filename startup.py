@@ -17,7 +17,8 @@ def setup_directories():
         os.makedirs(directory, exist_ok=True)
         print(f"✓ Dossier créé/vérifié : {directory}")
 
-def check_database():
+# Ce script n'est plus nécessaire. Lance simplement l'application Streamlit pour initialiser la base via db.init_db().
+
     """Vérifie et initialise la base de données."""
     db_path = "data/memoires_db.sqlite"
     if not os.path.exists(db_path):

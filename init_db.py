@@ -2,7 +2,8 @@ import sqlite3
 import os
 import hashlib
 
-def init_db():
+# Ce script n'est plus nécessaire. Lance simplement l'application Streamlit pour initialiser la base via db.init_db().
+
     # Assurez-vous que le dossier data existe
     os.makedirs('data', exist_ok=True)
     
