@@ -1,0 +1,106 @@
+# Environnement et configuration
+.env
+.env.local
+*.env
+
+# Base de données
+*.sqlite
+*.db
+
+# Dossiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Dossiers de données
+data/
+uploads/
+downloads/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Streamlit
+.streamlit/
+
+# Garder les dossiers vides avec leurs .gitkeep
+!data/.gitkeep
+!data/files/.gitkeep
+!data/memoires/.gitkeep
+
+# Fichiers de configuration locaux
+.env
+.env.local
+*.sqlite
+*.db
+
+# Dossiers de données
+data/
+minio-data/
+
+# Fichiers de log
+*.log
+
+# Exclusions supplémentaires
+data/files/*
+.idea/
+venv/
+*.pyc
+
+# Ne pas ignorer les dossiers importants
+!assets/
+!data/
+!static/
+!templates/
+
+# Mais ignorer les fichiers temporaires dans ces dossiers
+data/**/*.sqlite
+data/**/*.db
+data/**/*.pyc
+data/**/__pycache__/
+
+# Minio
+.minio.sys/
+data/.minio.sys/
+minio/
+
+# Garder les dossiers vides
+!data/files/
+!data/memoires/
+
+# Fichiers de configuration
+.env
+.streamlit/secrets.toml
+
+# Environnements virtuels
+venv/
+env/
+ENV/ 
