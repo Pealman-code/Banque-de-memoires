@@ -2146,31 +2146,40 @@ def show_logs():
     st.markdown("---")
     container = st.container()
     with container:
-        # Connexion à la base de données
-        # Connexion SQLite supprimée pour PostgreSQL
-        
-        # Récupération des logs avec noms d'utilisateurs
-        query = """
-        SELECT l.id, l.action, u.nom, l.date 
-        FROM logs l
-        LEFT JOIN utilisateurs u ON l.user_id = u.id
-        ORDER BY l.date DESC
-        LIMIT 100
-        """
-        logs = pd.read_sql_query(query, conn)
-        conn.close()
-        
-        # Affichage des logs
-        st.write("Dernières actions effectuées (100 maximum):")
-        
-        if logs.empty:
-            st.info("Aucune activité enregistrée.")
-        else:
-            # Formater le dataframe pour l'affichage
-            logs.columns = ['ID', 'Action', 'Utilisateur', 'Date']
-            logs['Utilisateur'] = logs['Utilisateur'].fillna('Visiteur')
+        try:
+            # Utilisation du DatabaseManager pour la connexion
+            db.connect()
             
-            st.dataframe(logs, use_container_width=True)
+            # Récupération des logs avec noms d'utilisateurs
+            query = """
+            SELECT l.id, l.action, u.nom, l.date 
+            FROM logs l
+            LEFT JOIN utilisateurs u ON l.user_id = u.id
+            ORDER BY l.date DESC
+            LIMIT 100
+            """
+            # Utilisation directe du curseur de psycopg2 pour PostgreSQL
+            db.cursor.execute(query)
+            logs = db.cursor.fetchall()
+            
+            # Conversion en DataFrame pandas
+            import pandas as pd
+            logs_df = pd.DataFrame(logs, columns=['ID', 'Action', 'Utilisateur', 'Date'])
+            
+            # Affichage des logs
+            st.write("Dernières actions effectuées (100 maximum):")
+            
+            if logs_df.empty:
+                st.info("Aucune activité enregistrée.")
+            else:
+                # Formater le dataframe pour l'affichage
+                logs_df['Utilisateur'] = logs_df['Utilisateur'].fillna('Visiteur')
+                st.dataframe(logs_df, use_container_width=True)
+                
+        except Exception as e:
+            st.error(f"Erreur lors de la récupération des logs : {str(e)}")
+        finally:
+            db.close()
 
 # Point d'entrée principal de l'application
 if __name__ == "__main__":

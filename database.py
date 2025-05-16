@@ -6,9 +6,9 @@ from datetime import datetime
 from config import get_db_config
 
 def adapt_query(query, db_type):
-    # Bloc SQLite désactivé pour PostgreSQL
+    if db_type == 'sqlite':
         return query.replace("%s", "?")
-    return query
+    return query  # Pour PostgreSQL, on garde les %s
 
 class DatabaseManager:
     def __init__(self):
